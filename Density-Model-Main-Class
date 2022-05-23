@@ -1,0 +1,322 @@
+class Density_Model:
+    def __init__(self, data_files, model_parameters):
+        #makes the needed imports
+        import numpy as np
+        import scipy as sp
+        import matplotlib.pyplot as plt
+        import math
+        import numpy.matlib as ml
+        import scipy.integrate as ig
+        import scipy.interpolate as ip
+        import scipy.optimize as optimize
+        import pandas as pd
+        
+        ##################
+        #input file paths as strings in a list
+        ##################
+        self.data_files = data_files
+        self.coefficients = model_parameters
+
+    def format_data(self):
+        #########################
+        #this changes the data into readable numpy arrays
+        #########################
+        self.density_file = self.data_files[0]
+        self.rho_file = self.data_files[1]
+        self.time_file = self.data_files[2]
+        
+        ##################################### this is for the density_data
+        experiment_density_directory = self.density_file
+        experiment_density_raw = pd.read_csv(experiment_density_directory)
+        experiment_density = []
+
+        for i in range(0,len(experiment_density_raw)):
+            list2 = []
+            raw_line = experiment_density_raw.iloc[i][0]
+            split_line = raw_line.split()
+            for num in split_line:
+                list2.append(float(num))
+            experiment_density.append(list2)
+
+
+        ##################################### Radial locations
+
+        experiment_rho_directory = self.rho_file
+        experiment_rho_raw = pd.read_csv(experiment_rho_directory)
+        experiment_rho = [0.0]
+        for i in range(0,len(experiment_rho_raw)):
+            raw_points = experiment_rho_raw.iloc[i][0]
+            experiment_rho.append(raw_points)
+
+
+
+        #################################### Time data
+        experiment_time_directory = self.time_file
+        experiment_time_raw = pd.read_csv(experiment_time_directory)
+        experiment_time = []
+
+        for i in range(0,len(experiment_time_raw)):
+            raw_points = experiment_time_raw.iloc[i][0]
+            experiment_time.append(raw_points)
+            
+        if experiment_time[1] > 10: #checks if the data is in ms or s
+            for i in range(0,len(experiment_time)):
+                experiment_time[i] = experiment_time[i]/1000
+        else:
+            a = 1
+            
+            
+        #defines some variables to be called on later
+        self.original_density_data = experiment_density
+        self.original_rho_data = experiment_rho
+        self.original_time_data = experiment_time
+
+        
+        self.normalization = np.amax(experiment_density)
+        experiment_density_normalized = []
+        for i in range(0,len(experiment_density)):
+            experiment_density_normalized.append([])
+            for j in range(0,len(experiment_density[i])):
+                experiment_density_normalized[i].append(experiment_density[i][j]/1.0e19)
+        self.normalized_density = experiment_density_normalized
+        return
+        
+        
+    def reduce_data(self, normalized = False, reduction_number = 1):
+        ####################
+        #reduces the number of data points to speed up calculations and reduce numerical instabiloty
+        ####################
+        self.reduction_number = reduction_number
+        if normalized == True:
+            dens_data = self.normalized_density
+        else:
+            dens_data = self.original_density_data
+        
+        space_data = self.original_rho_data
+        time_data = self.original_time_data
+
+        reduced_dens_data = []
+        reduced_space_data = []
+        for i in range(0,len(dens_data)):
+            for j in range(0,len(dens_data[i])):
+                if j % reduction_number == 0:
+                    reduced_dens_data.append(dens_data[i])
+        for i in range(0,len(dens_data[0])):
+            reduced_space_data.append(space_data[i])
+        reduced_data = [reduced_dens_data, reduced_space_data, time_data]
+        self.reduced_data = reduced_data #this holds the reduced data
+        return
+    
+    def expand_time_scale(self,extra_time_factor):
+        old_simulation_time = []
+        for i in range(0,len(self.reduced_data[2])-1):
+            extra_time = list(np.linspace(self.reduced_data[2][i],self.reduced_data[2][i+1], 
+                                          extra_time_factor))
+            
+            simulation_time = old_simulation_time + extra_time
+            simulation_time.pop()
+            old_simulation_time = simulation_time
+            
+        simulation_time.append(self.reduced_data[2][-1])
+        self.simulation_time = simulation_time
+        
+    def reduce_time_scale(self, extra_time_factor):
+        original_size_n_e = []
+        #reduce the simulaton back to its original time scale
+        for i in range(0,len(self.full_modeled_density_data)):
+            if i % (extra_time_factor - 1) == 0:
+                original_size_n_e.append(self.full_modeled_density_data[i])
+            else: 
+                continue
+        self.modeled_density_data = original_size_n_e  #this is the original size as the data
+        return
+    
+    def interpolate_reduced_data(self):
+        
+        ###################################
+        #reinterpolates the reduced and modeled data to return a profile the same size as the original
+        ###################################
+        dens_data = self.modeled_density_data
+        space_data = self.reduced_data[1]
+        time_data = self.reduced_data[2]
+
+        reduced_dens_data = self.modeled_density_data
+        reduced_space_data = self.reduced_data[1]
+
+        interp_dens_profile = []
+        for i in range(0,len(time_data)):
+            interp_dens = ip.InterpolatedUnivariateSpline(space_data,dens_data[i])
+            interp_dens_profile.append([])
+            for j in range(0,len(space_data)):
+                interp_dens_profile[i].append(interp_dens(space_data[j]))
+
+        self.interp_data = [interp_dens_profile,space_data,time_data]
+        return
+    
+    def gradient(self, quantity, spaces):
+        ###########
+        #standard linear gradient
+        ###########
+        grad = np.array(quantity)
+        for i in range(1,len(quantity)-1):
+            step = (spaces[i+1] - spaces[i-1])
+            grad[i] = (quantity[i+1] - quantity[i-1]) / step
+        #makes the gradient at the edges the same as the value for the point right next to them
+        grad[0] = grad[1]
+        grad[-1] = grad[-1]
+        return grad
+        
+        
+    def get_gamma_2block(self, grad_n_e, n_e, spots, Ds, Vs):  #this is the place to mess with the Ds and Vs ##### Right now Ds and Vs are two each
+        grad_n_e = np.array(grad_n_e,dtype=float)
+        n_e = np.array(n_e,dtype=float)
+
+        gamma = np.array(n_e,dtype = float)
+
+        for i in range(0,len(n_e)):
+            if spots[i] >= 0.9:    ############## Here controls where the second block begins and it changes D and V values
+                D = Ds[1]
+                V = Vs[1]
+            else:
+                D = Ds[0]
+                V = Vs[0]
+            gamma[i] = -1*D*grad_n_e[i] + V*n_e[i]
+        return np.array(gamma,dtype=float)
+    
+    def source_func(self, spaces, height, width): #add a new source as an exponential, not a gaussian
+        source_profile = np.zeros_like(spaces)
+        for i in range(0,len(spaces)):
+            source_profile[i] = height*np.exp(-1*width*(spaces[i]-1)**2)
+        return np.array(source_profile,dtype=float)
+    
+    
+    def diff_eq (self, grad_gamma, source): #must be fed a np.array and spits one out
+        dn_dt = -1*grad_gamma + source
+        return np.array(dn_dt,dtype=float)
+    
+    def model_density(self): # this is going to be like model3 but it will use interpolation and find the gradient that way
+        ##### need to make extra time points to avoid numerical instability #####
+        extra_time_factor = 10
+        self.expand_time_scale(extra_time_factor)
+        
+        ############### Define needed variables ##############
+        
+        y0 = self.reduced_data[0][0] # generated by 
+        spaces = self.reduced_data[1]
+        t = self.simulation_time # generated by the expand time scale function
+        
+        #print(t)
+        source_height = self.coefficients[0]
+        source_width = self.coefficients[1]
+        D1 = self.coefficients[2]
+        D2 = self.coefficients[3]
+        V1 = self.coefficients[4]
+        V2 = self.coefficients[5]
+
+        D_set = [D1,D2]
+        V_set = [V1,V2]
+        source_coefficients = [source_height, source_width]
+        
+        ##################### This begins the actual function ###############
+        f = self.diff_eq
+        source = self.source_func(spaces, source_height, source_width)
+        gradient = self.gradient
+        get_gamma = self.get_gamma_2block
+        rstep = spaces[1] - spaces[0] 
+        #gstep = 0.01 
+
+        n_e = [] #this just makes a list that can then be filled as the model goes on
+        for i in t:
+            n_e.append(np.array([1]))
+        n_e[0] = np.array(y0,dtype=float)
+
+      ################### This is the big time loop ###############
+        for j in range(0,len(t)-1):
+            #this is the full time step size
+            h = 0.1*(t[j+1] - t[j])
+            n_e0 = np.array(n_e[j])
+
+            #####calc all the stuff for k1 ######
+            
+            n_e1 = n_e0
+            grad_n1 = gradient(n_e1, spaces)
+            gam1 = get_gamma(grad_n1,n_e1,spaces,D_set, V_set)
+            grad_gam1 = gradient(gam1,spaces)
+            
+            #k1 is slope at start*timestep
+            k1 = h * f(grad_gam1,source)
+
+            #####calc all stuff for k2#####
+            
+            n_e2 = n_e1
+            for i in range(0,len(n_e1)):
+                n_e2[i] = n_e0[i] + (k1[i] / 2)
+
+            grad_n2 = gradient(n_e2,spaces)
+            gam2 = get_gamma(grad_n2, n_e2, spaces, D_set, V_set)
+            grad_gam2 = gradient(gam2,spaces)
+
+            #k2 is (slope at half time step)*(starting density+ k1 correction)
+            k2 = h*f(grad_gam2,source)
+
+            #####calc all stuff for k3#####
+            n_e3 = n_e2
+            for i in range(0,len(n_e1)):
+                n_e3[i] = n_e0[i] + (k2[i] / 2)
+            #print(n_e3)    
+            grad_n3 = gradient(n_e3,spaces)
+            gam3 = get_gamma(grad_n3,n_e3, spaces, D_set, V_set)
+            grad_gam3 = gradient(gam3,spaces)
+
+            #k3 is slope part way
+            k3 = h*f(grad_gam3,source)
+
+            #####calc all stuff for k4######
+            
+            n_e4 = n_e3
+            for i in range(0,len(n_e1)):
+                n_e3[i] = n_e0[i] + k3[i] 
+
+            grad_n4 = gradient(n_e4, spaces)
+            gam4 = get_gamma(grad_n4, n_e4, spaces, D_set, V_set)
+            grad_gam4 = gradient(gam4,spaces)
+
+            #k4 is slope at the end
+            k4 = h*f(grad_gam4,source)
+
+            ############## calculate k and andvance the scheme ###########
+            
+            k = (k1 + 2*k2 + 2*k3 + k4)/6
+            n_e[j+1] = n_e[j] + k
+
+        self.full_modeled_density_data = n_e # this is the full simulation with extra time steps
+        self.reduce_time_scale(extra_time_factor)
+        
+        return
+    
+
+    def model(self):
+        self.format_data()
+        self.reduce_data()
+        self.model_density()
+        self.interpolate_reduced_data()
+        return self.interp_data
+    
+    
+    def chi2_difference(self,args):
+        data = self.original_density_data
+        diff = 0
+        self.model()
+        trial = self.model()[0]
+        for i in range(0,len(data)):
+            for j in range(0,len(data[i])):
+                diff += (data[i][j] - trial[i][j])**2
+        return diff
+        
+    
+    
+    def optimize(self, initial_guess, optimization_bounds = None):
+        self.optimization_bounds = optimization_bounds
+        self.modeled_denisty = self.model()[0]
+        self.optimized_values = optimize.minimize(self.chi2_difference, initial_guess, args=(), method='Nelder-Mead')
+        return self.optimized_values
