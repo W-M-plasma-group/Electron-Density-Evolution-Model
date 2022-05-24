@@ -1,21 +1,24 @@
+#makes the needed imports
+import numpy as np
+import scipy as sp
+import matplotlib.pyplot as plt
+import math
+import numpy.matlib as ml
+import scipy.integrate as ig
+import scipy.interpolate as ip
+import scipy.optimize as optimize
+import pandas as pd
+
 class Density_Model:
-    def __init__(self, data_files, model_parameters):
-        #makes the needed imports
-        import numpy as np
-        import scipy as sp
-        import matplotlib.pyplot as plt
-        import math
-        import numpy.matlib as ml
-        import scipy.integrate as ig
-        import scipy.interpolate as ip
-        import scipy.optimize as optimize
-        import pandas as pd
+    def __init__(self, data_files, model_parameters,tokamak_parameters = [1.0,1.0]):
         
         ##################
         #input file paths as strings in a list
         ##################
         self.data_files = data_files
         self.coefficients = model_parameters
+        self.minor_radius = tokamak_parameters[0]
+        self.plasma_current = tokamak_parameters[1]
 
     def format_data(self):
         #########################
@@ -66,13 +69,14 @@ class Density_Model:
             a = 1
             
             
-        #defines some variables to be called on later
+        #####defines some variables to be called on later####
         self.original_density_data = experiment_density
         self.original_rho_data = experiment_rho
         self.original_time_data = experiment_time
 
-        
-        self.normalization = np.amax(experiment_density)
+        ##### Normalization based on Greenwald Density Limit #####
+        density_limit = self.plasma_current/(np.pi*self.minor_radius**2)
+        self.normalization = density_limit
         experiment_density_normalized = []
         for i in range(0,len(experiment_density)):
             experiment_density_normalized.append([])
