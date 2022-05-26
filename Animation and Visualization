@@ -1,0 +1,60 @@
+#This code uses the Main Class with an output of modeled_data = self.model()
+
+
+
+##### This animates the density profile over time #####
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+%matplotlib qt
+
+fig, ax = plt.subplots()
+plt.xlim(modeled_data[1][0],modeled_data[1][-1])
+plt.ylim(0,3e19)
+plt.xlabel("rho")
+plt.ylabel("n_e")
+
+x = modeled_data[1]
+line, = ax.plot(x, modeled_data[0][0])
+
+
+def animate(i):
+    line.set_ydata(modeled_data[0][i])  # update the data.
+    return line,
+
+
+ani = animation.FuncAnimation(
+    fig, animate,frames = len(modeled_data[2]), interval=40, blit=True, save_count=50)
+
+
+plt.show()
+
+##### This animates the plot vs time over as you cahnge rho #####
+
+
+fig, ax = plt.subplots()
+plt.xlim(modeled_data[2][0],modeled_data[2][-1])
+plt.ylim(0,3e19)
+plt.xlabel("time")
+plt.ylabel("n_e")
+
+
+x = modeled_data[2]
+first =[]
+for i in range(0,len(modeled_data[0])):
+    first.append(modeled_data[0][i][0])
+line, = ax.plot(x, first)
+
+
+def animate(i):
+    dat = []
+    for j in range(0,len(modeled_data[0])):
+        dat.append(modeled_data[0][j][i])
+    line.set_ydata(dat)  # update the data.
+    return line,
+
+
+ani = animation.FuncAnimation(
+    fig, animate,frames = len(modeled_data[1]), interval=40, blit=True, save_count=50)
+
+plt.show()
