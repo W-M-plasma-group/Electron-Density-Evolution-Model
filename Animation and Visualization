@@ -1,60 +1,97 @@
-#This code uses the Main Class with an output of modeled_data = self.model()
+###################################################################################################
+##### This class allows for easy plotting and animation of the density data vs time or vs rho #####
+###################################################################################################
 
-
-
-##### This animates the density profile over time #####
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 %matplotlib qt
 
-fig, ax = plt.subplots()
-plt.xlim(modeled_data[1][0],modeled_data[1][-1])
-plt.ylim(0,3e19)
-plt.xlabel("rho")
-plt.ylabel("n_e")
+class Visualization:
+    
+    def __init__(self,data):
+        self.fig, self.ax = plt.subplots()
+        ##### sets some variables for use in the animations and plotting #####
+        self.viz_dens_data = data[0]
+        self.viz_rho_data = data[1]
+        self.viz_time_data = data[2]
+        
+    def plot_dens_v_rho(self,time_index, ttl = "title"):
+        time_plt = str(self.viz_time_data[time_index])
+        plt.xlabel("$\\rho$")
+        plt.ylabel("$n_e$")
+        
+        if ttl == "title":
+            plt.title("Density vs $\\rho$ at t=" + time_plt)
+        else:
+            plt.title(ttl)
+        plt.plot(self.viz_rho_data, self.viz_dens_data[time_index])
+        
 
-x = modeled_data[1]
-line, = ax.plot(x, modeled_data[0][0])
+    def plot_dens_v_time(self,rho_index, ttl = "title"):
+        rho_plt = str(self.viz_rho_data[rho_index])
+        
+        plt.plot(self.viz_rho_data, self.viz_dens_data[rho_index])
+        plt.xlabel("Time")
+        plt.ylabel("$n_e$")
+        if ttl == "title":
+            plt.title("Density vs Time at $\\rho$ =" + rho_plt)
+        else:
+            plt.title(ttl)
+        
+
+    def animate_dens_v_rho(self,ttl = "title"): #currently plots a static image
+        ##### This function animates density vs rho plots over time #####
+        
+        
+        ##### sets up the figure #####
+        plt.xlim(self.viz_rho_data[0],self.viz_rho_data[-1])
+        plt.ylim(0,4e19)
+        plt.xlabel("$\\rho$")
+        plt.ylabel("$n_e$")
+        plt.title(ttl)
+
+        x = self.viz_rho_data
+        line, = self.ax.plot(self.viz_rho_data, self.viz_dens_data[0])
+
+        def animate(i):
+            line.set_ydata(self.viz_dens_data[i])  # update the data.
+            return line,
+
+        ##### runs the animation #####
+        ani = animation.FuncAnimation(
+            self.fig, animate, frames = len(self.viz_time_data), interval=40, blit=True, save_count=50)
+        return ani
+        plt.show()
+    
+    
+    def animate_dens_v_time(self,ttl = "title"): #currenlty plots a static image
+        ##### This function animates denisty vs time plots while changinf rho in real time #####
+        
+        
+        ##### sets up the figure #####
+        plt.xlim(self.viz_time_data[0],self.viz_time_data[-1])
+        plt.ylim(0,4e19)
+        plt.xlabel("time")
+        plt.ylabel("n_e")
+        plt.title(ttl)
+
+        x = self.viz_time_data
+        first =[]
+        for i in range(0,len(self.viz_dens_data)):
+            first.append(self.viz_dens_data[i][0])
+        line, = self.ax.plot(x, first)
 
 
-def animate(i):
-    line.set_ydata(modeled_data[0][i])  # update the data.
-    return line,
+        def animate(i):
+            dat = []
+            for j in range(0,len(self.viz_dens_data)):
+                dat.append(self.viz_dens_data[j][i])
+            line.set_ydata(dat)  # update the data.
+            return line,
 
-
-ani = animation.FuncAnimation(
-    fig, animate,frames = len(modeled_data[2]), interval=40, blit=True, save_count=50)
-
-
-plt.show()
-
-##### This animates the plot vs time over as you cahnge rho #####
-
-
-fig, ax = plt.subplots()
-plt.xlim(modeled_data[2][0],modeled_data[2][-1])
-plt.ylim(0,3e19)
-plt.xlabel("time")
-plt.ylabel("n_e")
-
-
-x = modeled_data[2]
-first =[]
-for i in range(0,len(modeled_data[0])):
-    first.append(modeled_data[0][i][0])
-line, = ax.plot(x, first)
-
-
-def animate(i):
-    dat = []
-    for j in range(0,len(modeled_data[0])):
-        dat.append(modeled_data[0][j][i])
-    line.set_ydata(dat)  # update the data.
-    return line,
-
-
-ani = animation.FuncAnimation(
-    fig, animate,frames = len(modeled_data[1]), interval=40, blit=True, save_count=50)
-
-plt.show()
+        ##### runs the animation #####
+        ani = animation.FuncAnimation(
+            self.fig, animate, frames = len(self.viz_rho_data), interval=40, blit=True, save_count=50)
+        return ani
+        plt.show()
