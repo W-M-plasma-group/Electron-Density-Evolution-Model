@@ -10,7 +10,7 @@ class ML_Building_and_Training:
         self.spacial_data_size = 99 # so its divisible by 3, drop edgemost point and inner most point
         self.temporal_data_size = 120 # so its divisible by 3
     
-    def build_data_sets(self):
+    def build_data_sets(self, training_size = 90, Validation_size = 10):
         
         ##################################################
         #### build training data and validation data #####
@@ -18,8 +18,8 @@ class ML_Building_and_Training:
 
         ##### this makes the validation and traiing data sets #####
         MLDP = ML_Data_Preparation(120)
-        train_dataset, train_data_labels = MLDP.generate_fake_training_data(90) #training data
-        validation_dataset, validation_data_labels = MLDP.generate_fake_training_data(10) #validation data
+        train_dataset, train_data_labels = MLDP.generate_fake_training_data(training_size) #training data
+        validation_dataset, validation_data_labels = MLDP.generate_fake_training_data(validation_size) #validation data
 
         ##### converts data sets to a format for the NN #####
         train_dataset = tf.data.Dataset.from_tensor_slices((train_dataset, train_data_labels))
@@ -38,9 +38,9 @@ class ML_Building_and_Training:
         self.output_len = len(output_options)
         
     def build_NN(self):
-        ###############################
-        ##### This Neural Netowrk #####
-        ###############################
+        ##############################
+        ##### The Neural Netowrk #####
+        ##############################
 
 
         # first dense line is the first hidden layer
@@ -48,7 +48,7 @@ class ML_Building_and_Training:
         #input shape determines the shape of the input, 1 being a vector
         #last dense layer is output layer and number of neurons corresponds to the possible outputs
 
-        Seq_NN = Sequential([
+        self.Seq_NN = Sequential([
                              Conv2D(filters=32, kernel_size=(3), activation='relu', padding='same',input_shape=(temporal_data_size, spacial_data_size,1)),
                              MaxPooling2D(pool_size=(2), strides=2),
                              Conv2D(filters=32, kernel_size=(3), activation='relu', padding='same'),
@@ -60,16 +60,16 @@ class ML_Building_and_Training:
         ])
 
         # Gives a summary of what the model looks like
-        Seq_NN.summary() 
+        self.Seq_NN.summary() 
         
     def train_NN(self):
         ##########################
         ##### Model Training #####
         ##########################
 
-        Seq_NN.compile(optimizer='adam',
+        self.Seq_NN.compile(optimizer='adam',
                       loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                       metrics=['accuracy'])
 
-        history = Seq_NN.fit(self.train_dataset, epochs=10, 
+        history = self.Seq_NN.fit(self.train_dataset, epochs=10, 
                             validation_data=(self.test_dataset))
