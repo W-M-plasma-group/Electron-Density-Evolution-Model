@@ -1,0 +1,12 @@
+# First steps are to import the 'ML_Data_preparation' and 'ML_Building_and_Training' classes as well as the 'Density_Model' class
+# once the apprpriate classes have been imported, also make other necessary imports under the 'Imports' file
+
+#To build a data set, build and Neural Network, and Train the Neural Network, call the apprpriate functions as seen below:
+MLBT = ML_Building_and_Training()
+MLBT.build_data_sets()
+MLBT.build_NN()
+MLBT.train_NN()
+
+# Save the trained Model
+
+# to make a prediction using the trained Neural Network, follow the instructions below:
