@@ -1,0 +1,39 @@
+%matplotlib inline
+import numpy as np
+import scipy as sp
+import matplotlib.pyplot as plt
+import math
+import numpy.matlib as ml
+import scipy.integrate as ig
+import scipy.interpolate as ip
+import scipy.optimize as optimize
+import pandas as pd
+import numpy.random as ran
+import os
+import glob
+import keras
+import tensorflow as tf
+
+
+
+##### For Machine Learning #####
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten, Activation
+from keras.layers import Conv2D, MaxPooling2D, Conv1D, MaxPooling1D
+from keras import backend as K
+from tensorflow.keras.optimizers import Adam
+from keras.metrics import categorical_crossentropy
+
+import sklearn as sk
+import seaborn as sns
+
+# for graph plots
+!apt install -q -y graphviz
+!pip install graphviz
+import graphviz
+
+from sklearn.neural_network import MLPClassifier
+
+
+!pip install tensorflow
