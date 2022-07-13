@@ -3,6 +3,7 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 import math
+import time
 import numpy.matlib as ml
 import scipy.integrate as ig
 import scipy.interpolate as ip
