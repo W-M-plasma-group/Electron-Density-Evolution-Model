@@ -1,3 +1,99 @@
+class ML_Data_Preparation:
+    
+    def __init__(self,temporal_data_size, restrictions = None):
+        self.temporal_data_size = temporal_data_size
+        
+        height_opt , decay_opt, D_opt, V_opt = 2, 2, 6, 21
+        height_max, decay_max, D_max, V_max = 1, 1, 5, 10
+        height_min, decay_min, D_min, V_min = 0, 0, 0, -10
+        
+        self.source_heights = np.linspace(decay_min, decay_max, height_opt)
+        self.source_decay = np.linspace(decay_min, decay_max ,decay_opt)
+        self.Ds = np.linspace(D_min, D_max, D_opt)
+        self.Vs = np.linspace(V_min, V_max, V_opt)
+        
+        
+        ##### This sets the output options for the NN #####
+        self.param_options = []
+        restrictions_met = True
+        for a in self.source_heights:
+            for b in self.source_decay:
+                for c in self.Ds:
+                    for d in self.Ds:
+                        for e in self.Vs:
+                            for f in self.Vs:
+                        
+                                if restrictions_met == True:
+                                    # This index corresponds to dense layer output node
+                                    self.param_options.append((a,b,c,d,e,f)) 
+                                else:
+                                    continue
+        #print('total_param_options: ', len(self.param_options))
+        
+    def prepare_data(self, data, normalization_parameters = [1,1]):  # only preps one density profile
+        #data is a list of density profiles, data should be a 3d list
+        
+        ##### transforms many density profiles to a vector for the NN #####
+        prepared_data = []
+        for i in range(0,self.temporal_data_size): # the length only goes as high as the size of the model will accept, 1002
+            data_vector = []
+            for j in range(1,len(data[i])-1): # the bounds cut off the radial edge points to fit the NN
+                data_vector.append(data[i][j])
+            prepared_data.append(data_vector)
+        
+        ##### normalizes density profiles based on Greenwald Density limit #####
+        norm = normalization_parameters[0]/(np.pi*normalization_parameters[1]**2)
+        self.Dens_limit = norm
+        
+        scaled_prepared_data = []
+        for i in range(0,len(prepared_data)):
+            scaled_vec = []
+            for j in range(0,len(prepared_data[i])):
+                scaled_vec.append([prepared_data[i][j]/norm])
+            scaled_prepared_data.append(scaled_vec)
+            
+            
+        self.prepared_data = scaled_prepared_data # needs to be a numpy array    
+        return scaled_prepared_data   
+        
+        
+    def generate_fake_training_data(self,num_samples):
+        
+        ##### create options for random choices of transport coefficients #####
+        
+        parameter_options = [self.source_heights,self.source_decay,self.Ds,self.Ds,self.Vs,self.Vs]
+        
+        ########## create a (fake) training data set #########
+        fake_training_set = [] # holds the input training data
+        fake_training_answers = [] # holds index of model parameters
+        fake_training_parameters = [] # holds the model parameters
+        
+        for data_point in range(0,num_samples): # this is the big loop to generate all the training data
+            param_index = ran.choice(range(0,len(self.param_options)),1)[0]
+            training_parameters = self.param_options[param_index]
+                
+            training_sample_data = ["158348_density-Copy1", "158348_rho-Copy1", "158348_time_values-Copy1"] # data to start model off of
+
+            DM = Density_Model(training_sample_data)
+            training_data_point = DM.model(training_parameters)
+
+            preped_fake_data_point = self.prepare_data(training_data_point[0]) # preps the data to be the right shape for NN
+            
+            fake_training_set.append(np.asarray(preped_fake_data_point))
+            fake_training_answers.append(np.asarray(param_index))
+            fake_training_parameters.append(np.asarray(training_parameters))
+                #each data point is a len(time)xlen(rho) list, list is num_samples long
+            #fake_training_answers.append(np.asarray(ran.choice([0,1],1)[0]))  
+                
+                
+        ##### new variables of the class instance for later use #####        
+        self.fake_training_data = fake_training_set
+        self.fake_training_parameters = fake_training_answers
+        
+        return fake_training_set, fake_training_answers
+
+
+
 class ML_Building_and_Training:
     def __init__(self):
         #######################################
@@ -10,7 +106,7 @@ class ML_Building_and_Training:
         self.spacial_data_size = 99 # so its divisible by 3, drop edgemost point and inner most point
         self.temporal_data_size = 120 # so its divisible by 3
     
-    def build_data_sets(self, training_size = 90, Validation_size = 10):
+    def build_data_sets(self, training_size = 90, validation_size = 10):
         
         ##################################################
         #### build training data and validation data #####
@@ -35,12 +131,12 @@ class ML_Building_and_Training:
 
         ##### sets the output options for the NN #####
         self.output_options = MLDP.param_options
-        self.output_len = len(output_options)
+        self.output_len = len(self.output_options)
         
     def build_NN(self):
-        ##############################
-        ##### The Neural Netowrk #####
-        ##############################
+        ###############################
+        ##### This Neural Netowrk #####
+        ###############################
 
 
         # first dense line is the first hidden layer
@@ -49,7 +145,7 @@ class ML_Building_and_Training:
         #last dense layer is output layer and number of neurons corresponds to the possible outputs
 
         self.Seq_NN = Sequential([
-                             Conv2D(filters=32, kernel_size=(3), activation='relu', padding='same',input_shape=(temporal_data_size, spacial_data_size,1)),
+                             Conv2D(filters=32, kernel_size=(3), activation='relu', padding='same',input_shape=(self.temporal_data_size, self.spacial_data_size,1)),
                              MaxPooling2D(pool_size=(2), strides=2),
                              Conv2D(filters=32, kernel_size=(3), activation='relu', padding='same'),
                              MaxPooling2D(pool_size=(2), strides=2),
