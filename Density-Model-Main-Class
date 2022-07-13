@@ -10,13 +10,13 @@ import scipy.optimize as optimize
 import pandas as pd
 
 class Density_Model:
-    def __init__(self, data_files, model_parameters,tokamak_parameters = [1.0,1.0]):
+    def __init__(self, data_files, tokamak_parameters = [1.0,1.0]):
         
         ##################
         #input file paths as strings in a list
         ##################
         self.data_files = data_files
-        self.coefficients = model_parameters
+        #self.coefficients = model_parameters
         self.minor_radius = tokamak_parameters[0]
         self.plasma_current = tokamak_parameters[1]
 
@@ -73,29 +73,12 @@ class Density_Model:
         self.original_density_data = experiment_density
         self.original_rho_data = experiment_rho
         self.original_time_data = experiment_time
-
-        ##### Normalization based on Greenwald Density Limit #####
-        density_limit = self.plasma_current/(np.pi*self.minor_radius**2)
-        self.normalization = density_limit
-        experiment_density_normalized = []
-        for i in range(0,len(experiment_density)):
-            experiment_density_normalized.append([])
-            for j in range(0,len(experiment_density[i])):
-                experiment_density_normalized[i].append(experiment_density[i][j]/1.0e19)
-        self.normalized_density = experiment_density_normalized
         return
         
         
     def reduce_data(self, normalized = False, reduction_number = 1):
-        ####################
-        #reduces the number of data points to speed up calculations and reduce numerical instabiloty
-        ####################
-        self.reduction_number = reduction_number
-        if normalized == True:
-            dens_data = self.normalized_density
-        else:
-            dens_data = self.original_density_data
-        
+
+        dens_data = self.original_density_data
         space_data = self.original_rho_data
         time_data = self.original_time_data
 
@@ -167,7 +150,7 @@ class Density_Model:
             grad[i] = (quantity[i+1] - quantity[i-1]) / step
         #makes the gradient at the edges the same as the value for the point right next to them
         grad[0] = grad[1]
-        grad[-1] = grad[-1]
+        grad[-1] = grad[-2]
         return grad
         
         
@@ -190,17 +173,19 @@ class Density_Model:
     def source_func(self, spaces, height, width): #add a new source as an exponential, not a gaussian
         source_profile = np.zeros_like(spaces)
         for i in range(0,len(spaces)):
-            source_profile[i] = height*np.exp(-1*width*(spaces[i]-1)**2)
+            source_profile[i] = height*np.exp(-1*width*(spaces[i]-1)**2) + 0.1*height
+                                #gaussian term                            #complete upward shift 10% of edge sourcing
+        
         return np.array(source_profile,dtype=float)
     
     
-    def diff_eq (self, grad_gamma, source): #must be fed a np.array and spits one out
+    def diff_eq (self, grad_gamma, source):
         dn_dt = -1*grad_gamma + source
         return np.array(dn_dt,dtype=float)
     
     def model_density(self): # this is going to be like model3 but it will use interpolation and find the gradient that way
         ##### need to make extra time points to avoid numerical instability #####
-        extra_time_factor = 10
+        extra_time_factor = 15
         self.expand_time_scale(extra_time_factor)
         
         ############### Define needed variables ##############
@@ -299,7 +284,8 @@ class Density_Model:
         return
     
 
-    def model(self):
+    def model(self,model_parameters):
+        self.coefficients = model_parameters
         self.format_data()
         self.reduce_data()
         self.model_density()
@@ -307,20 +293,12 @@ class Density_Model:
         return self.interp_data
     
     
-    def chi2_difference(self,args):
-        data = self.original_density_data
+    def chi2_difference(self, params):
+        data = self.model([0,0,1,1,1,1])[0]
         diff = 0
-        self.model()
-        trial = self.model()[0]
+        #self.model(self, params)
+        trial = self.model(params)[0]
         for i in range(0,len(data)):
             for j in range(0,len(data[i])):
                 diff += (data[i][j] - trial[i][j])**2
         return diff
-        
-    
-    
-    def optimize(self, initial_guess, optimization_bounds = None):
-        self.optimization_bounds = optimization_bounds
-        self.modeled_denisty = self.model()[0]
-        self.optimized_values = optimize.minimize(self.chi2_difference, initial_guess, args=(), method='Nelder-Mead')
-        return self.optimized_values
