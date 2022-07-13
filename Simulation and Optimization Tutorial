@@ -1,20 +1,30 @@
+%matplotlib inline
+import time
+
 #step 1.)  is to select the data you want to model and compare to
 test_experiment_data = ["158348_density", "158348_rho", "158348_time_values"] #make sure to use the proper file path
-test_model_params = [0,0,0,0,0,0] # this is just for the sake of example
+test_model_params = [0,0,1,1,-5,-1] # this is just for the sake of example
 
 #step 2.) call the model function from the Density_Model class with 2 inputs
 # i.) the experiemental data from before (density, position, time)
 # ii.) the model parameters you want to simulate with (source amplitude, Source decay rate, D1, D2, V1, V2)
-DM = Density_Model(test_experiment_data, test_model_params)
-modeled_data = DM.model()
+DM = Density_Model(test_experiment_data)
+modeled_data = DM.model(test_model_params)
+
 
 # this section plots the simulated data
 r,t = np.meshgrid(modeled_data[1],modeled_data[2])
-plt.contour(r,t,modeled_data[0],300)
+plt.contour(r,t,modeled_data[0],500)
 plt.colorbar()
 
+
+start_time = time.time()
 #step 3.) call the optimization function from the Density_Model class with an initial guess of parameters
 # the guess should follow the same format as before - (source amplitude, Source decay rate, D1, D2, V1, V2)
-initial_guess = [0,0,0,0,0,0]
-optimized_vals = DM.optimize(initial_guess)
+initial_guess = [0,0,1,0,-4,-1] # this is just an example
+opt = Optimization(DM.original_density_data,test_experiment_data)
+optimized_vals = opt.optimize(initial_guess)
 print(optimized_vals)
+
+
+print('total time to run:', (time.time() - start_time)/60)
