@@ -1,30 +1,58 @@
 %matplotlib inline
 import time
+import Model_Classes as CLSS
 
-#step 1.)  is to select the data you want to model and compare to
-test_experiment_data = ["158348_density", "158348_rho", "158348_time_values"] #make sure to use the proper file path
-test_model_params = [0,0,1,1,-5,-1] # this is just for the sake of example
+################ Simulation Tutorial ################
 
-#step 2.) call the model function from the Density_Model class with 2 inputs
-# i.) the experiemental data from before (density, position, time)
-# ii.) the model parameters you want to simulate with (source amplitude, Source decay rate, D1, D2, V1, V2)
-DM = Density_Model(test_experiment_data)
-modeled_data = DM.model(test_model_params)
+#step 1.) Select the data you want to model and compare to
+  # i.) the experiemental data from before (density, position, time)
+  # ii.) the model parameters you want to simulate with (source amplitude, Source decay rate, D1, D2, V1, V2)
+  
+real_comp_data_files = ["175888_density", "175888_rho", "175888_time"] # experimental data to call from a CVS file
+synth_comp_data_params = [0,0,0,0,0,0] # example transport parameters for the siulation to use
+
+
+
+#step 2.) call the model function from the Density_Model
+DM_synth = CLSS.Density_Model(real_comp_data_files)  # this initiallizes the class
+DM_synth.format_data() # this sets the experimental data to be formatted for the simulation
+synth_comp_data = DM_synth.model(synth_comp_data_params) # this is the actual simulation setp. The output of this function is [sim density, rho, time]
+
 
 
 # this section plots the simulated data
 r,t = np.meshgrid(modeled_data[1],modeled_data[2])
-plt.contour(r,t,modeled_data[0],500)
+plt.pcolor(r,t,synth_comp_data[0],shading = 'auto')
 plt.colorbar()
 
 
-start_time = time.time()
-#step 3.) call the optimization function from the Density_Model class with an initial guess of parameters
-# the guess should follow the same format as before - (source amplitude, Source decay rate, D1, D2, V1, V2)
-initial_guess = [0,0,1,0,-4,-1] # this is just an example
-opt = Optimization(DM.original_density_data,test_experiment_data)
-optimized_vals = opt.optimize(initial_guess)
-print(optimized_vals)
+################ Optimization Tutorial ################
+#step 1.) set a starting point for the optimizer to begin, and a max number of iterations for it to terminate
+init_guess = [0,0,0,0,0,0]
+iterations = 1500
 
+#step 2.) select the experimental data to be optimized and format it using the simulation class
+real_comp_data_files = ["158348(2)_density", "158348(2)_rho", "158348(2)_time"]
+
+DM_synth = CLSS.Density_Model(real_comp_data_files[i])
+DM_synth.format_data()
+
+# step 3.) initialize the optimization class with the formatted data from the simulation class
+Opt_synth = CLSS.Optimization(DM_synth.original_density_data , real_comp_data_files[i]) 
+
+#step 4.) call the optimization function
+start_time = time.time()
+opt_vals = Opt_synth.optimize(init_guess,iterations).x #this function returns lots of info, but this just returns the actual optimized values
+end_time = time.time()
+    
+# step 5.) get some performance info and results
+total_time =(end_time - start_time)/ 60
+    
+optimized_info = [opt_vals, Opt_synth.chi2_difference(opt_vals), Opt_synth.chi2_difference(opt_vals, True), total_time]
+
+print("Found Transport Values = ", optimized_info[0])
+print("Difference = ", optimized_info[1])
+print("Normalized Difference = ", optimized_info[2])
+print("Time to Optimize = ", optimized_info[3])
 
 print('total time to run:', (time.time() - start_time)/60)
