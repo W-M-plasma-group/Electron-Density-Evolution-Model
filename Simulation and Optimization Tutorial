@@ -34,11 +34,11 @@ iterations = 1500
 #step 2.) select the experimental data to be optimized and format it using the simulation class
 real_comp_data_files = ["158348(2)_density", "158348(2)_rho", "158348(2)_time"]
 
-DM_synth = CLSS.Density_Model(real_comp_data_files[i])
+DM_synth = CLSS.Density_Model(real_comp_data_files)
 DM_synth.format_data()
 
 # step 3.) initialize the optimization class with the formatted data from the simulation class
-Opt_synth = CLSS.Optimization(DM_synth.original_density_data , real_comp_data_files[i]) 
+Opt_synth = CLSS.Optimization(DM_synth.original_density_data , real_comp_data_files) 
 
 #step 4.) call the optimization function
 start_time = time.time()
